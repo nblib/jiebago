@@ -174,9 +174,9 @@ func TestBench(t *testing.T) {
 	//if err != nil {
 	//	panic(err)
 	//}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 10; i++ {
 		for j := 0; j < len(lines); j++ {
-			print(seg.CutSync(lines[j], true))
+			seg.CutSync(lines[j], true)
 		}
 	}
 	//pprof.StopCPUProfile()

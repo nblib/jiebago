@@ -260,37 +260,33 @@ func (seg *Segmenter) cutDAGNoHMM(sentence string) []string {
 // Accurate mode attempts to cut the sentence into the most accurate
 // segmentations, which is suitable for text analysis.
 func (seg *Segmenter) CutSync(sentence string, hmm bool) []string {
-	//result := make([]string, 0)
+	result := make([]string, 0)
 	var cut cutFunc
 	if hmm {
 		cut = seg.cutDAGSync
 	} else {
 		cut = seg.cutDAGNoHMM
 	}
-	result := cut(sentence)
+	//result := cut(sentence)
 
-	//for _, block := range util.RegexpSplit(reHanDefault, sentence, -1) {
-	//	if len(block) == 0 {
-	//		continue
-	//	}
-	//	if reHanDefault.MatchString(block) {
-	//		//TODO: temp
-	//		//for x := range seg.cutDAG(block) {
-	//		//	result = append(result, x)
-	//		//}
-	//		//result = append(result, seg.cutDAGSync(block)...)
-	//		continue
-	//	}
-	//	for _, subBlock := range util.RegexpSplit(reSkipDefault, block, -1) {
-	//		if reSkipDefault.MatchString(subBlock) {
-	//			result = append(result, subBlock)
-	//			continue
-	//		}
-	//		for _, r := range subBlock {
-	//			result = append(result, string(r))
-	//		}
-	//	}
-	//}
+	for _, block := range util.RegexpSplit(reHanDefault, sentence, -1) {
+		if len(block) == 0 {
+			continue
+		}
+		if reHanDefault.MatchString(block) {
+			result = append(result, cut(block)...)
+			continue
+		}
+		for _, subBlock := range util.RegexpSplit(reSkipDefault, block, -1) {
+			if reSkipDefault.MatchString(subBlock) {
+				result = append(result, subBlock)
+				continue
+			}
+			for _, r := range subBlock {
+				result = append(result, string(r))
+			}
+		}
+	}
 	return result
 }
 
