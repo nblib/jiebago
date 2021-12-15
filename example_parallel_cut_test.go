@@ -27,7 +27,7 @@ var (
 func worker() {
 	for l := range task {
 		var segments []string
-		for segment := range segmenter.Cut(l.text, true) {
+		for _, segment := range segmenter.CutSync(l.text, true) {
 			segments = append(segments, segment)
 		}
 

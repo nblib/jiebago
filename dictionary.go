@@ -15,24 +15,28 @@ type Dictionary struct {
 }
 
 // Load loads all tokens from given channel
-func (d *Dictionary) Load(ch <-chan dictionary.Token) {
+func (d *Dictionary) Load(reader *dictionary.TokenReader) error {
 	d.Lock()
-	for token := range ch {
-		d.addToken(token)
+	for reader.HasNext() {
+		d.addToken(reader.Next())
 	}
-	d.Unlock()
+	if reader.Err() != nil {
+		return reader.Err()
+	}
+	defer d.Unlock()
 	d.updateLogTotal()
+	return nil
 }
 
 // AddToken adds one token
-func (d *Dictionary) AddToken(token dictionary.Token) {
+func (d *Dictionary) AddToken(token *dictionary.Token) {
 	d.Lock()
 	d.addToken(token)
 	d.Unlock()
 	d.updateLogTotal()
 }
 
-func (d *Dictionary) addToken(token dictionary.Token) {
+func (d *Dictionary) addToken(token *dictionary.Token) {
 	d.freqMap[token.Text()] = token.Frequency()
 	d.total += token.Frequency()
 	runes := []rune(token.Text())

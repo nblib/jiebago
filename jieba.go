@@ -72,7 +72,7 @@ func (seg *Segmenter) SuggestFrequency(words ...string) float64 {
 		}
 	} else {
 		word := words[0]
-		for segment := range seg.Cut(word, false) {
+		for _, segment := range seg.CutSync(word, false) {
 			if freq, ok := seg.dict.Frequency(segment); ok {
 				frequency *= freq
 			}
@@ -165,189 +165,181 @@ func (seg *Segmenter) calc(runes []rune) map[int]route {
 	return rs
 }
 
-type cutFunc func(sentence string) <-chan string
+type cutFunc func(sentence string) []string
 
-func (seg *Segmenter) cutDAG(sentence string) <-chan string {
-	result := make(chan string)
-	go func() {
-		runes := []rune(sentence)
-		routes := seg.calc(runes)
-		var y int
-		length := len(runes)
-		var buf []rune
-		for x := 0; x < length; {
-			y = routes[x].index + 1
-			frag := runes[x:y]
-			if y-x == 1 {
-				buf = append(buf, frag...)
-			} else {
-				if len(buf) > 0 {
-					bufString := string(buf)
-					if len(buf) == 1 {
-						result <- bufString
+func (seg *Segmenter) cutDAGSync(sentence string) []string {
+	result := make([]string, 0)
+	runes := []rune(sentence)
+	routes := seg.calc(runes)
+	var y int
+	length := len(runes)
+	var buf []rune
+	for x := 0; x < length; {
+		y = routes[x].index + 1
+		frag := runes[x:y]
+		if y-x == 1 {
+			buf = append(buf, frag...)
+		} else {
+			if len(buf) > 0 {
+				bufString := string(buf)
+				if len(buf) == 1 {
+					result = append(result, bufString)
+				} else {
+					if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
+						//for x := range finalseg.Cut(bufString) {
+						//	result = append(result, x)
+						//}
+						result = append(result, finalseg.CutSync(bufString)...)
 					} else {
-						if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
-							for x := range finalseg.Cut(bufString) {
-								result <- x
-							}
-						} else {
-							for _, elem := range buf {
-								result <- string(elem)
-							}
+						for _, elem := range buf {
+							result = append(result, string(elem))
 						}
 					}
-					buf = make([]rune, 0)
 				}
-				result <- string(frag)
-			}
-			x = y
-		}
-
-		if len(buf) > 0 {
-			bufString := string(buf)
-			if len(buf) == 1 {
-				result <- bufString
-			} else {
-				if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
-					for t := range finalseg.Cut(bufString) {
-						result <- t
-					}
-				} else {
-					for _, elem := range buf {
-						result <- string(elem)
-					}
-				}
-			}
-		}
-		close(result)
-	}()
-	return result
-}
-
-func (seg *Segmenter) cutDAGNoHMM(sentence string) <-chan string {
-	result := make(chan string)
-
-	go func() {
-		runes := []rune(sentence)
-		routes := seg.calc(runes)
-		var y int
-		length := len(runes)
-		var buf []rune
-		for x := 0; x < length; {
-			y = routes[x].index + 1
-			frag := runes[x:y]
-			if reEng.MatchString(string(frag)) && len(frag) == 1 {
-				buf = append(buf, frag...)
-				x = y
-				continue
-			}
-			if len(buf) > 0 {
-				result <- string(buf)
 				buf = make([]rune, 0)
 			}
-			result <- string(frag)
-			x = y
+			result = append(result, string(frag))
 		}
-		if len(buf) > 0 {
-			result <- string(buf)
-			buf = make([]rune, 0)
+		x = y
+	}
+
+	if len(buf) > 0 {
+		bufString := string(buf)
+		if len(buf) == 1 {
+			result = append(result, bufString)
+		} else {
+			if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
+				//for t := range finalseg.Cut(bufString) {
+				//	result = append(result, t)
+				//}
+				result = append(result, finalseg.CutSync(bufString)...)
+
+			} else {
+				for _, elem := range buf {
+					result = append(result, string(elem))
+				}
+			}
 		}
-		close(result)
-	}()
+	}
 	return result
 }
 
-// Cut cuts a sentence into words using accurate mode.
+func (seg *Segmenter) cutDAGNoHMM(sentence string) []string {
+	result := make([]string, 0)
+
+	runes := []rune(sentence)
+	routes := seg.calc(runes)
+	var y int
+	length := len(runes)
+	var buf []rune
+	for x := 0; x < length; {
+		y = routes[x].index + 1
+		frag := runes[x:y]
+		if reEng.MatchString(string(frag)) && len(frag) == 1 {
+			buf = append(buf, frag...)
+			x = y
+			continue
+		}
+		if len(buf) > 0 {
+			result = append(result, string(buf))
+			buf = make([]rune, 0)
+		}
+		result = append(result, string(frag))
+		x = y
+	}
+	if len(buf) > 0 {
+		result = append(result, string(buf))
+		buf = make([]rune, 0)
+	}
+
+	return result
+}
+
+// CutSync cuts a sentence into words using accurate mode.
 // Parameter hmm controls whether to use the Hidden Markov Model.
 // Accurate mode attempts to cut the sentence into the most accurate
 // segmentations, which is suitable for text analysis.
-func (seg *Segmenter) Cut(sentence string, hmm bool) <-chan string {
-	result := make(chan string)
+func (seg *Segmenter) CutSync(sentence string, hmm bool) []string {
+	//result := make([]string, 0)
 	var cut cutFunc
 	if hmm {
-		cut = seg.cutDAG
+		cut = seg.cutDAGSync
 	} else {
 		cut = seg.cutDAGNoHMM
 	}
+	result := cut(sentence)
 
-	go func() {
-		for _, block := range util.RegexpSplit(reHanDefault, sentence, -1) {
-			if len(block) == 0 {
-				continue
-			}
-			if reHanDefault.MatchString(block) {
-				for x := range cut(block) {
-					result <- x
-				}
-				continue
-			}
-			for _, subBlock := range util.RegexpSplit(reSkipDefault, block, -1) {
-				if reSkipDefault.MatchString(subBlock) {
-					result <- subBlock
-					continue
-				}
-				for _, r := range subBlock {
-					result <- string(r)
-				}
-			}
-		}
-		close(result)
-	}()
+	//for _, block := range util.RegexpSplit(reHanDefault, sentence, -1) {
+	//	if len(block) == 0 {
+	//		continue
+	//	}
+	//	if reHanDefault.MatchString(block) {
+	//		//TODO: temp
+	//		//for x := range seg.cutDAG(block) {
+	//		//	result = append(result, x)
+	//		//}
+	//		//result = append(result, seg.cutDAGSync(block)...)
+	//		continue
+	//	}
+	//	for _, subBlock := range util.RegexpSplit(reSkipDefault, block, -1) {
+	//		if reSkipDefault.MatchString(subBlock) {
+	//			result = append(result, subBlock)
+	//			continue
+	//		}
+	//		for _, r := range subBlock {
+	//			result = append(result, string(r))
+	//		}
+	//	}
+	//}
 	return result
 }
 
-func (seg *Segmenter) cutAll(sentence string) <-chan string {
-	result := make(chan string)
-	go func() {
-		runes := []rune(sentence)
-		dag := seg.dag(runes)
-		start := -1
-		ks := make([]int, len(dag))
-		for k := range dag {
-			ks[k] = k
+func (seg *Segmenter) cutAll(sentence string) []string {
+	result := make([]string, 0)
+	runes := []rune(sentence)
+	dag := seg.dag(runes)
+	start := -1
+	ks := make([]int, len(dag))
+	for k := range dag {
+		ks[k] = k
+	}
+	var l []int
+	for k := range ks {
+		l = dag[k]
+		if len(l) == 1 && k > start {
+			result = append(result, string(runes[k : l[0]+1]))
+			start = l[0]
+			continue
 		}
-		var l []int
-		for k := range ks {
-			l = dag[k]
-			if len(l) == 1 && k > start {
-				result <- string(runes[k : l[0]+1])
-				start = l[0]
-				continue
-			}
-			for _, j := range l {
-				if j > k {
-					result <- string(runes[k : j+1])
-					start = j
-				}
+		for _, j := range l {
+			if j > k {
+				result = append(result, string(runes[k : j+1]))
+				start = j
 			}
 		}
-		close(result)
-	}()
+	}
 	return result
 }
 
 // CutAll cuts a sentence into words using full mode.
 // Full mode gets all the possible words from the sentence.
 // Fast but not accurate.
-func (seg *Segmenter) CutAll(sentence string) <-chan string {
-	result := make(chan string)
-	go func() {
-		for _, block := range util.RegexpSplit(reHanCutAll, sentence, -1) {
-			if len(block) == 0 {
-				continue
-			}
-			if reHanCutAll.MatchString(block) {
-				for x := range seg.cutAll(block) {
-					result <- x
-				}
-				continue
-			}
-			for _, subBlock := range reSkipCutAll.Split(block, -1) {
-				result <- subBlock
-			}
+func (seg *Segmenter) CutAll(sentence string) []string {
+	result := make([]string, 0)
+	for _, block := range util.RegexpSplit(reHanCutAll, sentence, -1) {
+		if len(block) == 0 {
+			continue
 		}
-		close(result)
-	}()
+		if reHanCutAll.MatchString(block) {
+			for _, x := range seg.cutAll(block) {
+				result = append(result, x)
+			}
+			continue
+		}
+		for _, subBlock := range reSkipCutAll.Split(block, -1) {
+			result = append(result, subBlock)
+		}
+	}
 	return result
 }
 
@@ -355,26 +347,25 @@ func (seg *Segmenter) CutAll(sentence string) <-chan string {
 // Search engine mode, based on the accurate mode, attempts to cut long words
 // into several short words, which can raise the recall rate.
 // Suitable for search engines.
-func (seg *Segmenter) CutForSearch(sentence string, hmm bool) <-chan string {
-	result := make(chan string)
-	go func() {
-		for word := range seg.Cut(sentence, hmm) {
-			runes := []rune(word)
-			for _, increment := range []int{2, 3} {
-				if len(runes) <= increment {
-					continue
-				}
-				var gram string
-				for i := 0; i < len(runes)-increment+1; i++ {
-					gram = string(runes[i : i+increment])
-					if v, ok := seg.dict.Frequency(gram); ok && v > 0.0 {
-						result <- gram
-					}
+func (seg *Segmenter) CutForSearch(sentence string, hmm bool) []string {
+	result := make([]string, 0)
+
+	for _, word := range seg.CutSync(sentence, hmm) {
+		runes := []rune(word)
+		for _, increment := range []int{2, 3} {
+			if len(runes) <= increment {
+				continue
+			}
+			var gram string
+			for i := 0; i < len(runes)-increment+1; i++ {
+				gram = string(runes[i : i+increment])
+				if v, ok := seg.dict.Frequency(gram); ok && v > 0.0 {
+					result = append(result, gram)
 				}
 			}
-			result <- word
 		}
-		close(result)
-	}()
+		result = append(result, word)
+	}
+
 	return result
 }
