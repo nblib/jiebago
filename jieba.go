@@ -174,12 +174,13 @@ func (seg *Segmenter) cutDAGSync(sentence string) []string {
 	var y int
 	length := len(runes)
 	var buf []rune
+	var frag []rune
 	for x := 0; x < length; {
 		y = routes[x].index + 1
-		frag := runes[x:y]
 		if y-x == 1 {
-			buf = append(buf, frag...)
+			buf = append(buf, runes[x])
 		} else {
+			frag = runes[x:y]
 			if len(buf) > 0 {
 				bufString := string(buf)
 				if len(buf) == 1 {
