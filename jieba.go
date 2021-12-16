@@ -105,9 +105,9 @@ func (seg *Segmenter) LoadUserDictionary(fileName string) error {
 	return seg.dict.loadDictionary(fileName)
 }
 
-func (seg *Segmenter) dag(runes []rune) map[int][]int {
-	dag := make(map[int][]int)
+func (seg *Segmenter) dag(runes []rune) [][]int {
 	n := len(runes)
+	dag := make([][]int, n,n)
 	var frag []rune
 	var i int
 	for k := 0; k < n; k++ {
@@ -140,20 +140,20 @@ type route struct {
 	index     int
 }
 
-func (seg *Segmenter) calc(runes []rune) map[int]route {
+func (seg *Segmenter) calc(runes []rune) []*route {
 	dag := seg.dag(runes)
 	n := len(runes)
-	rs := make(map[int]route)
-	rs[n] = route{frequency: 0.0, index: 0}
-	var r route
+	rs := make([]*route, n+1, n+1)
+	rs[n] = &route{frequency: 0.0, index: 0}
+	var r *route
 	for idx := n - 1; idx >= 0; idx-- {
 		for _, i := range dag[idx] {
 			if freq, ok := seg.dict.Frequency(string(runes[idx : i+1])); ok {
-				r = route{frequency: math.Log(freq) - seg.dict.logTotal + rs[i+1].frequency, index: i}
+				r = &route{frequency: math.Log(freq) - seg.dict.logTotal + rs[i+1].frequency, index: i}
 			} else {
-				r = route{frequency: math.Log(1.0) - seg.dict.logTotal + rs[i+1].frequency, index: i}
+				r = &route{frequency: math.Log(1.0) - seg.dict.logTotal + rs[i+1].frequency, index: i}
 			}
-			if v, ok := rs[idx]; !ok {
+			if v:= rs[idx]; v == nil {
 				rs[idx] = r
 			} else {
 				if v.frequency < r.frequency || (v.frequency == r.frequency && v.index < r.index) {
