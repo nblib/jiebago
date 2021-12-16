@@ -187,9 +187,6 @@ func (seg *Segmenter) cutDAGSync(sentence string) []string {
 					result = append(result, bufString)
 				} else {
 					if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
-						//for x := range finalseg.Cut(bufString) {
-						//	result = append(result, x)
-						//}
 						result = append(result, finalseg.CutSync(bufString)...)
 					} else {
 						for _, elem := range buf {

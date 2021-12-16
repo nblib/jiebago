@@ -36,6 +36,11 @@ func cutHanSync(sentence string) []string {
 	return result
 }
 
+// CutSync 分割字符串
+// 分3中情况:
+// 1. 字符串汉字开头,使用hmm分割开头的汉字部分,剩余部分重新判断开头
+// 2. 字符串(\d+\.\d+|[a-zA-Z0-9]+)开头, 直接提取出来,剩余部分重新判断开头
+// 3. 字符串开头不满足上述两个条件,将不满足的部分直接提取出来,剩余部分重新判断开头
 func CutSync(sentence string) []string {
 	result := make([]string, 0)
 	s := sentence
@@ -44,6 +49,7 @@ func CutSync(sentence string) []string {
 	var nonhanLoc []int
 
 	for {
+		//情况1
 		hanLoc = reHan.FindStringIndex(s)
 		if hanLoc == nil {
 			if len(s) == 0 {
@@ -58,6 +64,7 @@ func CutSync(sentence string) []string {
 			result = append(result, cutHanSync(hans)...)
 			continue
 		}
+		//情况2
 		nonhanLoc = reSkip.FindStringIndex(s)
 		if nonhanLoc == nil {
 			if len(s) == 0 {
@@ -71,6 +78,7 @@ func CutSync(sentence string) []string {
 				continue
 			}
 		}
+		//情况3
 		var loc []int
 		if hanLoc == nil && nonhanLoc == nil {
 			if len(s) > 0 {
