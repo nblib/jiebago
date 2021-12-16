@@ -2,6 +2,7 @@
 package finalseg
 
 import (
+	"github.com/wangbin/jiebago/util"
 	"regexp"
 )
 
@@ -10,8 +11,7 @@ var (
 	reSkip = regexp.MustCompile(`(\d+\.\d+|[a-zA-Z0-9]+)`)
 )
 
-func cutHanSync(sentence string) []string {
-	result := make([]string, 0)
+func cutHanSync(sentence string, result *util.StrArrBuffer) {
 
 	runes := []rune(sentence)
 	_, posList := viterbiNew(runes)
@@ -22,18 +22,16 @@ func cutHanSync(sentence string) []string {
 		case State_B:
 			begin = i
 		case State_E:
-			result = append(result, string(runes[begin:i+1]))
+			result.Write(string(runes[begin : i+1]))
 			next = i + 1
 		case State_S:
-			result = append(result, string(char))
+			result.Write(string(char))
 			next = i + 1
 		}
 	}
 	if next < len(runes) {
-		result = append(result, string(runes[next:]))
+		result.Write(string(runes[next:]))
 	}
-
-	return result
 }
 
 // CutSync 分割字符串
@@ -41,8 +39,7 @@ func cutHanSync(sentence string) []string {
 // 1. 字符串汉字开头,使用hmm分割开头的汉字部分,剩余部分重新判断开头
 // 2. 字符串(\d+\.\d+|[a-zA-Z0-9]+)开头, 直接提取出来,剩余部分重新判断开头
 // 3. 字符串开头不满足上述两个条件,将不满足的部分直接提取出来,剩余部分重新判断开头
-func CutSync(sentence string) []string {
-	result := make([]string, 0)
+func CutSync(sentence string, result * util.StrArrBuffer) {
 	s := sentence
 	var hans string
 	var hanLoc []int
@@ -58,10 +55,7 @@ func CutSync(sentence string) []string {
 		} else if hanLoc[0] == 0 {
 			hans = s[hanLoc[0]:hanLoc[1]]
 			s = s[hanLoc[1]:]
-			//for han := range cutHan(hans) {
-			//	result = append(result, han)
-			//}
-			result = append(result, cutHanSync(hans)...)
+			cutHanSync(hans, result)
 			continue
 		}
 		//情况2
@@ -74,7 +68,7 @@ func CutSync(sentence string) []string {
 			nonhans := s[nonhanLoc[0]:nonhanLoc[1]]
 			s = s[nonhanLoc[1]:]
 			if nonhans != "" {
-				result = append(result, nonhans)
+				result.Write(nonhans)
 				continue
 			}
 		}
@@ -82,7 +76,7 @@ func CutSync(sentence string) []string {
 		var loc []int
 		if hanLoc == nil && nonhanLoc == nil {
 			if len(s) > 0 {
-				result = append(result, s)
+				result.Write(s)
 				break
 			}
 		} else if hanLoc == nil {
@@ -94,9 +88,7 @@ func CutSync(sentence string) []string {
 		} else {
 			loc = nonhanLoc
 		}
-		result = append(result, s[:loc[0]])
+		result.Write(s[:loc[0]])
 		s = s[loc[0]:]
 	}
-
-	return result
 }

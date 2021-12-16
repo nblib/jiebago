@@ -169,17 +169,32 @@ func TestBench(t *testing.T) {
 		}
 	}
 	fmt.Println(len(lines))
-	fmt.Println(time.Now())
 	//err = pprof.StartCPUProfile(cpuFile)
 	//if err != nil {
 	//	panic(err)
 	//}
-	for i := 0; i < 10; i++ {
+	//minTime := math.MaxFloat64
+	//for v := 0; v < 5; v++ {
+	//	startTime := time.Now()
+	//	for i := 0; i < 10; i++ {
+	//		for j := 0; j < len(lines); j++ {
+	//			seg.CutSync(lines[j], true)
+	//		}
+	//	}
+	//	dura := time.Now().Sub(startTime).Seconds()
+	//	if dura < minTime {
+	//		minTime = dura
+	//	}
+	//}
+	startTime := time.Now()
+	for i := 0; i < 50; i++ {
 		for j := 0; j < len(lines); j++ {
 			seg.CutSync(lines[j], true)
 		}
 	}
+	dura := time.Now().Sub(startTime).Seconds()
 	//pprof.StopCPUProfile()
-	fmt.Println(time.Now())
+
+	fmt.Println("最佳耗时: ", dura)
 
 }

@@ -107,7 +107,7 @@ func (seg *Segmenter) LoadUserDictionary(fileName string) error {
 
 func (seg *Segmenter) dag(runes []rune) [][]int {
 	n := len(runes)
-	dag := make([][]int, n,n)
+	dag := make([][]int, n, n)
 	var frag []rune
 	var i int
 	for k := 0; k < n; k++ {
@@ -153,7 +153,7 @@ func (seg *Segmenter) calc(runes []rune) []*route {
 			} else {
 				r = &route{frequency: math.Log(1.0) - seg.dict.logTotal + rs[i+1].frequency, index: i}
 			}
-			if v:= rs[idx]; v == nil {
+			if v := rs[idx]; v == nil {
 				rs[idx] = r
 			} else {
 				if v.frequency < r.frequency || (v.frequency == r.frequency && v.index < r.index) {
@@ -165,10 +165,9 @@ func (seg *Segmenter) calc(runes []rune) []*route {
 	return rs
 }
 
-type cutFunc func(sentence string) []string
+type cutFunc func(sentence string, result *util.StrArrBuffer)
 
-func (seg *Segmenter) cutDAGSync(sentence string) []string {
-	result := make([]string, 0)
+func (seg *Segmenter) cutDAGSync(sentence string, result *util.StrArrBuffer) {
 	runes := []rune(sentence)
 	routes := seg.calc(runes)
 	var y int
@@ -184,19 +183,19 @@ func (seg *Segmenter) cutDAGSync(sentence string) []string {
 			if len(buf) > 0 {
 				bufString := string(buf)
 				if len(buf) == 1 {
-					result = append(result, bufString)
+					result.Write(bufString)
 				} else {
 					if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
-						result = append(result, finalseg.CutSync(bufString)...)
+						finalseg.CutSync(bufString, result)
 					} else {
 						for _, elem := range buf {
-							result = append(result, string(elem))
+							result.Write(string(elem))
 						}
 					}
 				}
 				buf = make([]rune, 0)
 			}
-			result = append(result, string(frag))
+			result.Write(string(frag))
 		}
 		x = y
 	}
@@ -204,26 +203,20 @@ func (seg *Segmenter) cutDAGSync(sentence string) []string {
 	if len(buf) > 0 {
 		bufString := string(buf)
 		if len(buf) == 1 {
-			result = append(result, bufString)
+			result.Write(bufString)
 		} else {
 			if v, ok := seg.dict.Frequency(bufString); !ok || v == 0.0 {
-				//for t := range finalseg.Cut(bufString) {
-				//	result = append(result, t)
-				//}
-				result = append(result, finalseg.CutSync(bufString)...)
-
+				finalseg.CutSync(bufString, result)
 			} else {
 				for _, elem := range buf {
-					result = append(result, string(elem))
+					result.Write(string(elem))
 				}
 			}
 		}
 	}
-	return result
 }
 
-func (seg *Segmenter) cutDAGNoHMM(sentence string) []string {
-	result := make([]string, 0)
+func (seg *Segmenter) cutDAGNoHMM(sentence string, result *util.StrArrBuffer) {
 
 	runes := []rune(sentence)
 	routes := seg.calc(runes)
@@ -239,18 +232,16 @@ func (seg *Segmenter) cutDAGNoHMM(sentence string) []string {
 			continue
 		}
 		if len(buf) > 0 {
-			result = append(result, string(buf))
+			result.Write(string(buf))
 			buf = make([]rune, 0)
 		}
-		result = append(result, string(frag))
+		result.Write(string(frag))
 		x = y
 	}
 	if len(buf) > 0 {
-		result = append(result, string(buf))
+		result.Write(string(buf))
 		buf = make([]rune, 0)
 	}
-
-	return result
 }
 
 // CutSync cuts a sentence into words using accurate mode.
@@ -258,7 +249,7 @@ func (seg *Segmenter) cutDAGNoHMM(sentence string) []string {
 // Accurate mode attempts to cut the sentence into the most accurate
 // segmentations, which is suitable for text analysis.
 func (seg *Segmenter) CutSync(sentence string, hmm bool) []string {
-	result := make([]string, 0)
+	result := &util.StrArrBuffer{}
 	var cut cutFunc
 	if hmm {
 		cut = seg.cutDAGSync
@@ -272,20 +263,20 @@ func (seg *Segmenter) CutSync(sentence string, hmm bool) []string {
 			continue
 		}
 		if reHanDefault.MatchString(block) {
-			result = append(result, cut(block)...)
+			cut(block, result)
 			continue
 		}
 		for _, subBlock := range util.RegexpSplit(reSkipDefault, block, -1) {
 			if reSkipDefault.MatchString(subBlock) {
-				result = append(result, subBlock)
+				result.Write(subBlock)
 				continue
 			}
 			for _, r := range subBlock {
-				result = append(result, string(r))
+				result.Write(string(r))
 			}
 		}
 	}
-	return result
+	return result.GetArr()
 }
 
 func (seg *Segmenter) cutAll(sentence string) []string {
@@ -301,13 +292,13 @@ func (seg *Segmenter) cutAll(sentence string) []string {
 	for k := range ks {
 		l = dag[k]
 		if len(l) == 1 && k > start {
-			result = append(result, string(runes[k : l[0]+1]))
+			result = append(result, string(runes[k:l[0]+1]))
 			start = l[0]
 			continue
 		}
 		for _, j := range l {
 			if j > k {
-				result = append(result, string(runes[k : j+1]))
+				result = append(result, string(runes[k:j+1]))
 				start = j
 			}
 		}

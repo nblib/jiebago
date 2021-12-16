@@ -1,6 +1,9 @@
 package jiebago
 
-import "testing"
+import (
+	"github.com/wangbin/jiebago/util"
+	"testing"
+)
 
 var (
 	seg          Segmenter
@@ -624,15 +627,18 @@ func chanToArray(ch []string) []string {
 }
 
 func TestCutDAG(t *testing.T) {
-	result := chanToArray(seg.cutDAGSync("BP神经网络如何训练才能在分类时增加区分度？"))
-	if len(result) != 11 {
+	result := &util.StrArrBuffer{}
+	seg.cutDAGSync("BP神经网络如何训练才能在分类时增加区分度？", result)
+	if len(result.GetArr()) != 11 {
 		t.Fatal(result)
 	}
 }
 
 func TestCutDAGNoHmm(t *testing.T) {
-	result := chanToArray(seg.cutDAGNoHMM("BP神经网络如何训练才能在分类时增加区分度？"))
-	if len(result) != 11 {
+	result := &util.StrArrBuffer{}
+
+	seg.cutDAGNoHMM("BP神经网络如何训练才能在分类时增加区分度？", result)
+	if len(result.GetArr()) != 11 {
 		t.Fatal(result)
 	}
 }
